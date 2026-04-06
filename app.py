@@ -3,7 +3,7 @@ import pandas as pd
 
 # ====== Load Data ======
 try:
-    df = pd.read_csv(r"C:\Users\C-LAB\OneDrive\Documents\Desktop\MyAPP\smart_parking_Data_28k.csv")
+    df = pd.read_csv("smart_parking_Data_28k.csv")
 except Exception as e:
     st.error(f"Error loading CSV: {e}")
 
