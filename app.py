@@ -15,13 +15,16 @@ rec_df = df.groupby(['day', 'hour']).agg({
 }).reset_index()
 
 rec_df['score'] = (1 - rec_df['occupancy']) * 0.7 + (1 / (rec_df['price'] + epsilon)) * 0.3
-rec_df['dynamic_price'] = rec_df['price'] * (1 + 0.5 * rec_df['occupancy'] + 0.2 * (rec_df['hour']/23))
+
+# Dynamic Price
+rec_df['dynamic_price'] = rec_df['price'] * (
+    1 + 0.5 * rec_df['occupancy'] + 0.2 * (rec_df['hour'] / 23)
+)
 
 # ====== Recommendation Function ======
 def recommend_dynamic(day, user_hour, prefer='balanced'):
     data = rec_df[rec_df['day'] == day].copy()
-    data['dynamic_price'] = data['price'] * (1 + 0.5 * data['occupancy'] + 0.2 * (data['hour']/23))
-    
+
     if prefer == 'cheap':
         return data.sort_values(by='dynamic_price').iloc[0]
     elif prefer == 'less crowded':
@@ -33,8 +36,7 @@ def recommend_dynamic(day, user_hour, prefer='balanced'):
 # ====== Nearest Best Time Function ======
 def nearest_best_time(day, user_hour, prefer='balanced'):
     data = rec_df[rec_df['day'] == day].copy()
-    data['dynamic_price'] = data['price'] * (1 + 0.5 * data['occupancy'] + 0.2 * (data['hour']/23))
-    
+
     if prefer == 'cheap':
         data = data.sort_values(by='dynamic_price')
     elif prefer == 'less crowded':
@@ -42,12 +44,12 @@ def nearest_best_time(day, user_hour, prefer='balanced'):
     else:
         data['score'] = (1 - data['occupancy']) * 0.7 + (1 / (data['dynamic_price'] + 1e-6)) * 0.3
         data = data.sort_values(by='score', ascending=False)
-        
+
     top_times = data.head(5).copy()
     top_times['distance'] = abs(top_times['hour'] - user_hour)
     return top_times.sort_values(by='distance').iloc[0]
 
-# ====== Session State for Pages ======
+# ====== Session State ======
 if 'page' not in st.session_state:
     st.session_state.page = 'home'
 
@@ -71,28 +73,55 @@ else:
 
     st.markdown("**📅 Choose Day**")
     day = st.selectbox("", sorted(df['day'].unique()))
-    
+
     st.markdown("**💡 Preference**")
     preference = st.selectbox("", ["balanced", "cheap", "less crowded"])
-    
+
     st.markdown("**⏰ Choose Your Time**")
     user_hour = st.slider("", 0, 23, 12)
 
     if st.button("🚀 Get Recommendation"):
+
+        # ===== Best Recommendation =====
         best = recommend_dynamic(day, user_hour, prefer=preference)
         nearest = nearest_best_time(day, user_hour, prefer=preference)
 
+        # ===== Selected Time Data =====
+        selected = rec_df[
+            (rec_df['day'] == day) & (rec_df['hour'] == user_hour)
+        ].iloc[0]
+
+        # ===== Best Time Display =====
         st.markdown(
-            f"<h2 style='color:white; font-weight:bold; font-size:30px;'>Best time according to data: {int(best['hour'])}:00 🕒</h2>",
+            f"<h2 style='color:white; font-weight:bold; font-size:30px;'>Best time: {int(best['hour'])}:00 🕒</h2>",
             unsafe_allow_html=True
         )
 
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("🚗 Occupancy", f"{round(best['occupancy'],2)}")
+            st.metric("🚗 Occupancy (Best)", round(best['occupancy'], 2))
         with col2:
-            st.metric("💰 Dynamic Price", f"{round(best['dynamic_price'],2)}")
+            st.metric("💰 Price (Best)", round(best['dynamic_price'], 2))
 
+        st.markdown("---")
+
+        # ===== User Selected Time =====
+        st.markdown(
+            f"<h3 style='color:white;'>⏰ Your Time: {user_hour}:00</h3>",
+            unsafe_allow_html=True
+        )
+
+        col3, col4 = st.columns(2)
+        with col3:
+            st.metric("🚗 Occupancy (Your Time)", round(selected['occupancy'], 2))
+        with col4:
+            st.metric("💵 Price (Your Time)", round(selected['dynamic_price'], 2))
+
+        # ===== Smart Hint =====
+        if selected['dynamic_price'] > best['dynamic_price']:
+            st.info("💡 You can save money by choosing the recommended time!")
+
+        # ===== Nearest Suggestion =====
         if int(nearest['hour']) != user_hour:
             st.warning(f"⚠️ Closest better time to your choice ({user_hour}:00) is {int(nearest['hour'])}:00")
         else:
