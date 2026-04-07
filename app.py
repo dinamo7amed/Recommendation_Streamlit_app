@@ -115,7 +115,7 @@ else:
         with col3:
             st.metric("🚗 Occupancy (Your Time)", round(selected['occupancy'], 2))
         with col4:
-            st.metric("💵 Price (Your Time)", round(selected['dynamic_price'], 2))
+            st.metric("💰 Price (Your Time)", round(selected['dynamic_price'], 2))
 
         # ===== Smart Hint =====
         if selected['dynamic_price'] > best['dynamic_price']:
